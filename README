@@ -1,0 +1,6 @@
+The code to generate BP/RP spectra based on stellar atmospheric parameters
+
+You need PHOENIX spectra from here:
+ftp://phoenix.astro.physik.uni-goettingen.de/MedResFITS/A1FITS/
+
+See the ipython notebook for details how to run the software
