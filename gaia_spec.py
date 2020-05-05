@@ -85,6 +85,15 @@ class cache:
     mat_bp = None
     mat_rp = None
 
+def rebin(lam, dat, N):
+    assert(np.ptp(np.diff(lam))<1e-6)
+    # cut the end
+    n0 = len(lam)
+    n0x = n0 - (n0%N)
+    lam1 = lam[0:n0x].reshape(n0x//N,N)
+    dat1 = dat[0:n0x].reshape(n0x//N,N)
+    return lam1.mean(axis=1), dat1.mean(axis=1)
+
 
 def get_bp_rp(filename):
     '''
@@ -96,7 +105,11 @@ def get_bp_rp(filename):
     dat, hdr = pyfits.getdata(filename, header=True)
     wc = pywcs.WCS(hdr)
     pix = np.arange(len(dat))
-    lam = wc.all_pix2world(pix, 0)[0] / 10  # nm
+    lam = wc.all_pix2world(pix, 1)[0] / 10  # nm
+    rebin_factor = 10 # rebin by that much
+    lam, dat= rebin(lam, dat, rebin_factor)
+    pix = np.arange(len(dat)) # reconstruct
+
     dat = dat.astype(
         np.float64) / 6.6260755e-27 / 2.99792458e10 * lam * 1e-7 * (
             np.diff(lam)[0] * 1e-7)  # photons/cm^2/pix
