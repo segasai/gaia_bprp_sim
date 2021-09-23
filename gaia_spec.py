@@ -5,7 +5,10 @@ import astropy.wcs as pywcs
 import numpy as np
 import scipy.interpolate
 
-betw = lambda x, x1, x2: (x >= x1) & (x < x2)
+
+def betw(x, x1, x2):
+    return (x >= x1) & (x < x2)
+
 
 def getGaiaInfo():
     tab = atpy.Table().read('nominalXpSamplePositions_colsSimple_PUBISHED.csv')
@@ -17,8 +20,8 @@ def getGaiaInfo():
     npix = len(pix)
     wave_bp_I = scipy.interpolate.UnivariateSpline(pix, wave_bp)
     wave_rp_I = scipy.interpolate.UnivariateSpline(pix, wave_rp)
-    wave_bp_I1 = scipy.interpolate.UnivariateSpline(wave_bp, pix)
-    wave_rp_I1 = scipy.interpolate.UnivariateSpline(wave_rp, pix)
+    # wave_bp_I1 = scipy.interpolate.UnivariateSpline(wave_bp, pix)
+    # wave_rp_I1 = scipy.interpolate.UnivariateSpline(wave_rp, pix)
 
     resol_pix_bp = np.linspace(1.3, 1.9, npix, True)
     resol_pix_rp = np.linspace(3.5, 4.1, npix, True)
@@ -28,10 +31,14 @@ def getGaiaInfo():
     gau_bp = resol_pix_bp * wave_disp_bp / 2.35
     gau_rp = resol_pix_rp * wave_disp_rp / 2.35
 
-    resol_bp_I = scipy.interpolate.UnivariateSpline(
-        wave_bp, gau_bp, ext=3, s=0)
-    resol_rp_I = scipy.interpolate.UnivariateSpline(
-        wave_rp, gau_rp, ext=3, s=0)
+    resol_bp_I = scipy.interpolate.UnivariateSpline(wave_bp,
+                                                    gau_bp,
+                                                    ext=3,
+                                                    s=0)
+    resol_rp_I = scipy.interpolate.UnivariateSpline(wave_rp,
+                                                    gau_rp,
+                                                    ext=3,
+                                                    s=0)
 
     T = atpy.Table().read('GaiaDR2_RevisedPassbands.dat', format='ascii')
     xind = T['col4'] < 1
@@ -42,10 +49,14 @@ def getGaiaInfo():
     trans_rp_wave = T['col1'][xind]
     trans_rp = T['col6'][xind]
 
-    trans_bp_I = scipy.interpolate.UnivariateSpline(
-        trans_bp_wave, trans_bp, ext=1, s=0)
-    trans_rp_I = scipy.interpolate.UnivariateSpline(
-        trans_rp_wave, trans_rp, ext=1, s=0)
+    trans_bp_I = scipy.interpolate.UnivariateSpline(trans_bp_wave,
+                                                    trans_bp,
+                                                    ext=1,
+                                                    s=0)
+    trans_rp_I = scipy.interpolate.UnivariateSpline(trans_rp_wave,
+                                                    trans_rp,
+                                                    ext=1,
+                                                    s=0)
     info = {}
     info['npix'] = npix
     info['trans_bp_I'] = trans_bp_I
@@ -56,6 +67,7 @@ def getGaiaInfo():
     info['pixedges_rp'] = pixedges_rp
     return info
 
+
 def getmat(transI, resolI, lam):
     gau = resolI(lam)
     npix = len(lam)
@@ -63,7 +75,7 @@ def getmat(transI, resolI, lam):
     xi = []
     yi = []
     for i in range(npix):
-        #xind = betw(lam - lam[i], -5 * gau[i], 5 * gau[i])
+        # xind = betw(lam - lam[i], -5 * gau[i], 5 * gau[i])
         x1 = np.searchsorted(lam, lam[i] - 5 * gau[i])
         x2 = np.searchsorted(lam, lam[i] + 5 * gau[i])
         if x1 == x2:
@@ -85,17 +97,18 @@ class cache:
     mat_bp = None
     mat_rp = None
 
+
 def rebin(lam, dat, N):
-    assert(np.ptp(np.diff(lam))<1e-6)
+    assert (np.ptp(np.diff(lam)) < 1e-6)
     # cut the end
     n0 = len(lam)
-    n0x = n0 - (n0%N)
-    lam1 = lam[0:n0x].reshape(n0x//N,N)
-    dat1 = dat[0:n0x].reshape(n0x//N,N)
+    n0x = n0 - (n0 % N)
+    lam1 = lam[0:n0x].reshape(n0x // N, N)
+    dat1 = dat[0:n0x].reshape(n0x // N, N)
     return lam1.mean(axis=1), dat1.mean(axis=1)
 
 
-def get_bp_rp(filename):
+def get_bp_rp(filename, rv=0):
     '''
     Get the Bp/Rp spectra from the PHOENIX spectra
     lte05600-2.00-0.0.Alpha=-0.20.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits
@@ -105,24 +118,28 @@ def get_bp_rp(filename):
     dat, hdr = pyfits.getdata(filename, header=True)
     wc = pywcs.WCS(hdr)
     pix = np.arange(len(dat))
-    lam = wc.all_pix2world(pix, 1)[0] / 10  # nm
-    rebin_factor = 10 # rebin by that much
-    lam, dat= rebin(lam, dat, rebin_factor)
-    pix = np.arange(len(dat)) # reconstruct
+    lam = wc.all_pix2world(pix, 1)[0] / 10 * (1 + rv / 3e5)  # nm
+    #rebin_factor = 10  # rebin by that much
+    #lam, dat = rebin(lam, dat, rebin_factor)
+    pix = np.arange(len(dat))  # reconstruct
 
     dat = dat.astype(
         np.float64) / 6.6260755e-27 / 2.99792458e10 * lam * 1e-7 * (
             np.diff(lam)[0] * 1e-7)  # photons/cm^2/pix
 
-    if cache.mat_bp is None:
+    if cache.mat_bp is None or rv != 0:
         mat_bp = getmat(info['trans_bp_I'], info['resol_bp_I'], lam)
-        cache.mat_bp = mat_bp
+        if rv == 0:
+            cache.mat_bp = mat_bp
+    else:
+        mat_bp = cache.mat_bp
 
-    if cache.mat_rp is None:
+    if cache.mat_rp is None or rv != 0:
         mat_rp = getmat(info['trans_rp_I'], info['resol_rp_I'], lam)
-        cache.mat_rp = mat_rp
-
-    mat_bp, mat_rp = cache.mat_bp, cache.mat_rp
+        if rv == 0:
+            cache.mat_rp = mat_rp
+    else:
+        mat_rp = cache.mat_rp
 
     xp_bp = mat_bp.dot(dat)
     xp_rp = mat_rp.dot(dat)
@@ -143,4 +160,6 @@ def get_bp_rp(filename):
         poss1.append(np.searchsorted(lam, info['pixedges_rp'][i]))
     for i in range(npix):
         res1.append(prod_rp[poss1[i]:poss1[i + 1]].sum())
+    res = np.array(res)
+    res1 = np.array(res1)
     return res, res1
