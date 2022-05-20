@@ -10,6 +10,19 @@ def betw(x, x1, x2):
     return (x >= x1) & (x < x2)
 
 
+def interpolator(spec, left, right):
+    if left > len(spec) - 1 or right < 0:
+        return 0
+
+    left = np.maximum(left, 0)
+    right = np.minimum(right, len(spec) - 1)
+    l1 = int(np.ceil(left))
+    r1 = int(np.floor(right))
+    ret = spec[l1 + 1:r1 -
+               1].sum() + (l1 - left) * spec[l1] + (right - r1) * spec[r1]
+    return ret
+
+
 def getGaiaInfo():
     tab = atpy.Table().read('nominalXpSamplePositions_colsSimple_PUBISHED.csv')
     wave_bp = tab['BP_ROW1_FOV1_wavelength_nm'][::-1]
@@ -152,14 +165,15 @@ def get_bp_rp(filename, rv=0):
     for i in range(npix + 1):
         poss.append(np.searchsorted(lam, info['pixedges_bp'][i]))
     for i in range(npix):
-        res.append(prod_bp[poss[i]:poss[i + 1]].sum())
+        res.append(interpolator(prod_bp, poss[i], poss[i + 1] - 1))
+
     res1 = []
     poss1 = []
 
     for i in range(npix + 1):
         poss1.append(np.searchsorted(lam, info['pixedges_rp'][i]))
     for i in range(npix):
-        res1.append(prod_rp[poss1[i]:poss1[i + 1]].sum())
+        res1.append(interpolator(prod_rp, poss1[i], poss1[i + 1] - 1))
     res = np.array(res)
     res1 = np.array(res1)
     return res, res1
